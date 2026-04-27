@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hungry Lands - Multiplayer Territory Game</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div id="loginScreen" class="login-screen">
+        <h1>🎮 Hungry Lands</h1>
+        <input type="text" id="nickname" placeholder="Nickname" maxlength="20">
+        <select id="colorSelect">
+            <option value="red">🔴 Red</option>
+            <option value="blue">🔵 Blue</option>
+            <option value="yellow">🟡 Yellow</option>
+            <option value="green">🟢 Green</option>
+            <option value="purple">🟣 Purple</option>
+            <option value="orange">🟠 Orange</option>
+            <option value="pink">🌸 Pink</option>
+            <option value="cyan">💠 Cyan</option>
+        </select>
+        <button onclick="login()">Start Game</button>
+        <div id="loginError" class="error"></div>
+    </div>
+    
+    <div id="gameScreen" class="game-container hidden">
+        <div class="canvas-container">
+            <canvas id="gameCanvas" width="480" height="480"></canvas>
+            <div class="controls">
+                <p>🎮 Move with <strong>WASD</strong> keys</p>
+                <p>🏆 Close loops to capture territory!</p>
+            </div>
+        </div>
+        <div class="info-panel">
+            <div class="player-info">
+                <h3>Your Stats</h3>
+                <div id="currentPlayerName">-</div>
+                <div class="score" id="currentScore">Score: 0</div>
+            </div>
+            <div class="leaderboard">
+                <h3>Leaderboard</h3>
+                <div id="leaderboard"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/game.js"></script>
+</body>
+</html>

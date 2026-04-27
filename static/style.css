@@ -1,0 +1,163 @@
+* {
+    user-select: none;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    margin: 0;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.game-container {
+    background: white;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.canvas-container {
+    text-align: center;
+}
+
+canvas {
+    border: 2px solid #333;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    cursor: pointer;
+}
+
+.info-panel {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 20px;
+    min-width: 250px;
+}
+
+.player-info {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.player-info h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.score {
+    font-size: 24px;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.leaderboard {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+}
+
+.leaderboard h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.leaderboard-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.leaderboard-item {
+    padding: 8px;
+    margin: 5px 0;
+    background: #f8f9fa;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.leaderboard-item.current {
+    background: #667eea;
+    color: white;
+    font-weight: bold;
+}
+
+.color-preview {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.controls {
+    margin-top: 20px;
+    padding: 15px;
+    background: white;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.controls p {
+    margin: 5px 0;
+    color: #666;
+}
+
+.login-screen {
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    min-width: 300px;
+}
+
+.login-screen h1 {
+    margin: 0 0 30px 0;
+    color: #333;
+}
+
+.login-screen input, .login-screen select {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.login-screen button {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-size: 18px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: transform 0.2s;
+}
+
+.login-screen button:hover {
+    transform: scale(1.05);
+}
+
+.error {
+    color: red;
+    margin-top: 10px;
+}
+
+.hidden {
+    display: none;
+}
