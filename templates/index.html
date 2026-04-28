@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hungry Lands - Multiplayer Territory Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Hungry Lands</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div id="loginScreen" class="login-screen">
-        <h1>🎮 Hungry Lands</h1>
+        <h1>🗺️ Hungry Lands</h1>
         <input type="text" id="nickname" placeholder="Nickname" maxlength="20">
         <select id="colorSelect">
             <option value="red">🔴 Red</option>
@@ -23,28 +23,14 @@
         <button onclick="login()">Start Game</button>
         <div id="loginError" class="error"></div>
     </div>
-    
     <div id="gameScreen" class="game-container hidden">
-        <div class="canvas-container">
-            <canvas id="gameCanvas" width="480" height="480"></canvas>
-            <div class="controls">
-                <p>🎮 Move with <strong>WASD</strong> keys</p>
-                <p>🏆 Close loops to capture territory!</p>
-            </div>
+        <div class="score-panel">
+            <div id="currentPlayerName"></div>
+            <div class="score" id="currentScore">Score: 0</div>
         </div>
-        <div class="info-panel">
-            <div class="player-info">
-                <h3>Your Stats</h3>
-                <div id="currentPlayerName">-</div>
-                <div class="score" id="currentScore">Score: 0</div>
-            </div>
-            <div class="leaderboard">
-                <h3>Leaderboard</h3>
-                <div id="leaderboard"></div>
-            </div>
-        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div class="controls">Press WASD once to start moving. Trail appears outside your land.</div>
     </div>
-    
     <script src="/static/game.js"></script>
 </body>
 </html>

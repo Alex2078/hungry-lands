@@ -1,0 +1,12 @@
+services:
+  hungry-lands:
+    build: .
+    container_name: hungry-lands
+    ports:
+      - "5080:8000"
+    volumes:
+      - .:/app                     # mount current directory into /app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped

@@ -1,165 +1,226 @@
 let ws = null;
 let currentPlayerId = null;
-let gridSize = 16;
-let cellSize = 30; // 480/16
-let gameGrid = [];
+let gridSize = 1000;
+let gameGrid = new Map();
 let players = [];
+let cameraX = 0, cameraY = 0;
+let canvas, ctx;
+let isLoggedIn = false;
+let loginInProgress = false;
+let nickname = '';
+let color = '';
+const TILE_SIZE = 20;
+let viewWidth, viewHeight;
+let initTimeout = null;
 
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+// Clean up old WebSocket on page unload
+window.addEventListener('beforeunload', () => {
+    if (ws) ws.close();
+});
 
 function login() {
-    const nickname = document.getElementById('nickname').value.trim();
-    const color = document.getElementById('colorSelect').value;
-    
-    if (!nickname) {
-        document.getElementById('loginError').textContent = 'Please enter a nickname';
+    if (loginInProgress) {
+        console.log('Login already in progress');
         return;
     }
-    
-    // Connect WebSocket
+    nickname = document.getElementById('nickname').value.trim();
+    color = document.getElementById('colorSelect').value;
+    if (!nickname) {
+        document.getElementById('loginError').textContent = 'Enter nickname';
+        return;
+    }
+    const btn = document.querySelector('.login-screen button');
+    btn.disabled = true;
+    btn.textContent = 'Connecting...';
+    loginInProgress = true;
+    document.getElementById('loginError').textContent = '';
+
+    // Close any existing WebSocket
+    if (ws) {
+        ws.onclose = null; // prevent auto-reconnect
+        ws.close();
+        ws = null;
+    }
+
+    // Clear any previous timeout
+    if (initTimeout) clearTimeout(initTimeout);
+
+    // Create new WebSocket
     ws = new WebSocket(`ws://${window.location.host}/ws`);
-    
     ws.onopen = () => {
-        ws.send(JSON.stringify({
-            type: 'login',
-            nickname: nickname,
-            color: color
-        }));
+        console.log('WebSocket open, sending login');
+        ws.send(JSON.stringify({ type: 'login', nickname, color }));
+        // Set a timeout for init response
+        initTimeout = setTimeout(() => {
+            console.error('Init timeout');
+            document.getElementById('loginError').textContent = 'Server not responding';
+            ws.close();
+            loginInProgress = false;
+            btn.disabled = false;
+            btn.textContent = 'Start Game';
+        }, 5000);
     };
-    
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
+    ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        handleMessage(data);
     };
-    
-    ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        document.getElementById('loginError').textContent = 'Connection error. Make sure server is running.';
+    ws.onerror = (err) => {
+        console.error('WebSocket error', err);
+        if (!isLoggedIn) {
+            document.getElementById('loginError').textContent = 'Connection error';
+            loginInProgress = false;
+            btn.disabled = false;
+            btn.textContent = 'Start Game';
+        }
     };
-    
     ws.onclose = () => {
         console.log('WebSocket closed');
-        if (currentPlayerId) {
-            alert('Disconnected from server');
-            location.reload();
+        if (initTimeout) clearTimeout(initTimeout);
+        if (!isLoggedIn) {
+            loginInProgress = false;
+            btn.disabled = false;
+            btn.textContent = 'Start Game';
         }
     };
 }
 
-function handleWebSocketMessage(data) {
+function handleMessage(data) {
     if (data.type === 'init') {
+        if (initTimeout) clearTimeout(initTimeout);
         currentPlayerId = data.player_id;
         updateGameState(data.state);
         document.getElementById('loginScreen').classList.add('hidden');
         document.getElementById('gameScreen').classList.remove('hidden');
-        setupKeyboardControls();
+        setupCanvas();
+        setupControls();
+        drawGame();
+        isLoggedIn = true;
+        loginInProgress = false;
+        console.log('Game started');
     } else if (data.type === 'game_state') {
         updateGameState(data.state);
+        drawGame();
     } else if (data.type === 'error') {
         alert(data.message);
-        if (data.message.includes('Color taken') || data.message.includes('spawn')) {
-            location.reload();
-        }
+        document.getElementById('loginScreen').classList.remove('hidden');
+        document.getElementById('gameScreen').classList.add('hidden');
+        isLoggedIn = false;
+        loginInProgress = false;
+        const btn = document.querySelector('.login-screen button');
+        btn.disabled = false;
+        btn.textContent = 'Start Game';
+        if (ws) ws.close();
+    } else if (data.type === 'death') {
+        alert(data.message);
+    } else if (data.type === 'capture') {
+        console.log(`Captured ${data.size} cells`);
     }
 }
 
 function updateGameState(state) {
-    gameGrid = state.grid;
-    players = state.players;
     gridSize = state.grid_size;
-    cellSize = canvas.width / gridSize;
-    
-    // Update current player info
-    const currentPlayer = players.find(p => p.id === currentPlayerId);
-    if (currentPlayer) {
-        document.getElementById('currentPlayerName').innerHTML = 
-            `<div class="color-preview" style="background-color: ${currentPlayer.color}"></div>
-             ${currentPlayer.nickname}`;
-        document.getElementById('currentScore').textContent = `Score: ${currentPlayer.score}`;
+    gameGrid.clear();
+    for (const [key, val] of Object.entries(state.grid)) {
+        gameGrid.set(key, val);
     }
-    
-    // Update leaderboard
-    const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
-    const leaderboardHtml = sortedPlayers.map(player => `
-        <div class="leaderboard-item ${player.id === currentPlayerId ? 'current' : ''}">
-            <div>
-                <div class="color-preview" style="background-color: ${player.color}"></div>
-                ${player.nickname}
-            </div>
-            <div>${player.score}</div>
-        </div>
-    `).join('');
-    document.getElementById('leaderboard').innerHTML = leaderboardHtml || '<div>No players</div>';
-    
-    // Draw game
-    drawGame();
+    players = state.players;
+    const me = players.find(p => p.id === currentPlayerId);
+    if (me) {
+        document.getElementById('currentPlayerName').innerHTML = `<div style="background:${me.color};width:16px;height:16px;border-radius:50%;display:inline-block;"></div> ${me.nickname}`;
+        document.getElementById('currentScore').innerText = `Score: ${me.score}`;
+    }
+}
+
+function setupCanvas() {
+    canvas = document.getElementById('gameCanvas');
+    ctx = canvas.getContext('2d');
+    function resizeAndRedraw() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        viewWidth = canvas.width;
+        viewHeight = canvas.height;
+        drawGame();
+    }
+    window.addEventListener('resize', resizeAndRedraw);
+    resizeAndRedraw();
 }
 
 function drawGame() {
-    if (!gameGrid) return;
-    
-    // Draw cells
-    for (let x = 0; x < gridSize; x++) {
-        for (let y = 0; y < gridSize; y++) {
-            const color = gameGrid[x][y];
-            ctx.fillStyle = color === 'gray' ? '#cccccc' : color;
-            ctx.fillRect(x * cellSize, y * cellSize, cellSize - 1, cellSize - 1);
-            
-            // Add border
-            ctx.strokeStyle = '#999';
-            ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+    if (!ctx || players.length === 0) return;
+    ctx.clearRect(0, 0, viewWidth, viewHeight);
+    const me = players.find(p => p.id === currentPlayerId);
+    if (me) {
+        const [px, py] = me.position;
+        cameraX = px * TILE_SIZE - viewWidth/2;
+        cameraY = py * TILE_SIZE - viewHeight/2;
+    }
+    const sx = Math.floor(cameraX / TILE_SIZE) - 2;
+    const sy = Math.floor(cameraY / TILE_SIZE) - 2;
+    const ex = sx + Math.ceil(viewWidth / TILE_SIZE) + 4;
+    const ey = sy + Math.ceil(viewHeight / TILE_SIZE) + 4;
+    for (let gy = sy; gy <= ey; gy++) {
+        for (let gx = sx; gx <= ex; gx++) {
+            const wx = ((gx % gridSize) + gridSize) % gridSize;
+            const wy = ((gy % gridSize) + gridSize) % gridSize;
+            const key = `${wx},${wy}`;
+            let val = gameGrid.get(key);
+            let isPath = false;
+            let color = val;
+            if (val && val.endsWith('_path')) {
+                isPath = true;
+                color = val.replace('_path', '');
+            }
+            if (!color) color = 'gray';
+            const scx = gx * TILE_SIZE - cameraX;
+            const scy = gy * TILE_SIZE - cameraY;
+            if (scx + TILE_SIZE > 0 && scx < viewWidth && scy + TILE_SIZE > 0 && scy < viewHeight) {
+                if (isPath) {
+                    ctx.fillStyle = color;
+                    ctx.fillRect(scx, scy, TILE_SIZE-1, TILE_SIZE-1);
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(scx, scy, TILE_SIZE-1, TILE_SIZE-1);
+                } else {
+                    ctx.fillStyle = color === 'gray' ? '#aaa' : color;
+                    ctx.fillRect(scx, scy, TILE_SIZE-1, TILE_SIZE-1);
+                    ctx.strokeStyle = '#444';
+                    ctx.strokeRect(scx, scy, TILE_SIZE-1, TILE_SIZE-1);
+                }
+            }
         }
     }
-    
-    // Draw players
-    for (const player of players) {
-        const [x, y] = player.position;
-        ctx.beginPath();
-        ctx.arc(x * cellSize + cellSize/2, y * cellSize + cellSize/2, cellSize/2 - 2, 0, 2 * Math.PI);
-        ctx.fillStyle = player.color;
-        ctx.fill();
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        // Draw player initial
-        ctx.fillStyle = 'white';
-        ctx.font = `${cellSize/2}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(player.nickname.charAt(0).toUpperCase(), x * cellSize + cellSize/2, y * cellSize + cellSize/2);
+    for (const p of players) {
+        const [px, py] = p.position;
+        const scx = px * TILE_SIZE - cameraX;
+        const scy = py * TILE_SIZE - cameraY;
+        if (scx + TILE_SIZE > 0 && scx < viewWidth && scy + TILE_SIZE > 0 && scy < viewHeight) {
+            ctx.beginPath();
+            ctx.arc(scx + TILE_SIZE/2, scy + TILE_SIZE/2, TILE_SIZE/2 - 2, 0, 2 * Math.PI);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = 'white';
+            ctx.font = `${TILE_SIZE/2}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText(p.nickname[0].toUpperCase(), scx + TILE_SIZE/2, scy + TILE_SIZE/2);
+        }
     }
 }
 
-function setupKeyboardControls() {
+function setupControls() {
     window.addEventListener('keydown', (e) => {
         const key = e.key.toLowerCase();
-        let direction = null;
-        
-        if (key === 'w') direction = 'up';
-        else if (key === 's') direction = 'down';
-        else if (key === 'a') direction = 'left';
-        else if (key === 'd') direction = 'right';
-        
-        if (direction && ws && ws.readyState === WebSocket.OPEN) {
-            e.preventDefault();
-            ws.send(JSON.stringify({
-                type: 'move',
-                direction: direction
-            }));
+        let dir = null;
+        if (key === 'w') dir = 'up';
+        else if (key === 's') dir = 'down';
+        else if (key === 'a') dir = 'left';
+        else if (key === 'd') dir = 'right';
+        else return;
+        e.preventDefault();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'move', direction: dir }));
         }
     });
 }
-
-// Handle window resize for better display
-function adjustCanvas() {
-    const container = document.querySelector('.canvas-container');
-    const size = Math.min(container.clientWidth, 480);
-    canvas.width = size;
-    canvas.height = size;
-    cellSize = size / gridSize;
-    if (gameGrid) drawGame();
-}
-
-window.addEventListener('resize', adjustCanvas);
