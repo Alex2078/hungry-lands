@@ -9,7 +9,6 @@ from game_logic import GameState, COLORS
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-
 game_state = GameState()
 
 class ConnectionManager:
@@ -28,7 +27,7 @@ class ConnectionManager:
         for conn in self.active_connections:
             try:
                 await conn.send_json(message)
-            except:
+            except Exception:
                 dead.add(conn)
         for conn in dead:
             self.disconnect(conn)
@@ -53,24 +52,22 @@ async def websocket_endpoint(websocket: WebSocket):
     player_id = None
     nickname = None
     try:
-        # Wait for login message with timeout
         data = await asyncio.wait_for(websocket.receive_json(), timeout=10)
         if data.get("type") != "login":
             await websocket.close()
             return
-        nickname = data.get("nickname", "Anonymous")
+
+        nickname = data.get("nickname", "Anonymous")[:15]
         color = data.get("color", COLORS[0])
 
         async with game_state.lock:
-            # Remove any existing player with same nickname and color
+            # Cleanup duplicates
             to_remove = [pid for pid, p in game_state.players.items() if p.nickname == nickname and p.color == color]
             for pid in to_remove:
                 game_state.remove_player(pid)
-                print(f"[CLEANUP] Removed duplicate {nickname} ({color})")
 
             player_id = str(uuid.uuid4())
-            success = game_state.add_player(player_id, nickname, color, websocket)
-            if not success:
+            if not game_state.add_player(player_id, nickname, color, websocket):
                 await websocket.send_json({"type": "error", "message": "No free spawn area"})
                 await websocket.close()
                 return
@@ -81,9 +78,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 "state": game_state.get_game_state()
             })
             await manager.broadcast_state()
-            print(f"[INIT] {nickname} ({color}) id={player_id}")
+            print(f"[INIT] {nickname} id={player_id}")
 
-        # Main loop: just wait for move messages
         while True:
             msg = await asyncio.wait_for(websocket.receive_json(), timeout=60)
             if msg.get("type") == "move":
@@ -95,11 +91,12 @@ async def websocket_endpoint(websocket: WebSocket):
                             game_state.change_direction(player_id, direction)
                         else:
                             game_state.start_moving(player_id, direction)
-                        await manager.broadcast_state()
+                await manager.broadcast_state()
+
     except asyncio.TimeoutError:
-        print(f"[TIMEOUT] {nickname or player_id}")
+        print(f"[TIMEOUT] {nickname}")
     except WebSocketDisconnect:
-        print(f"[DISCONNECT] {nickname or player_id}")
+        print(f"[DISCONNECT] {nickname}")
     except Exception as e:
         print(f"[ERROR] {e}")
     finally:
@@ -107,5 +104,4 @@ async def websocket_endpoint(websocket: WebSocket):
             async with game_state.lock:
                 game_state.remove_player(player_id)
                 await manager.broadcast_state()
-            print(f"[REMOVE] {nickname or player_id}")
         manager.disconnect(websocket)
