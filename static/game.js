@@ -45,7 +45,7 @@ function handleMessage(data) {
     } else if (data.type === 'game_state') {
         updateGameState(data.state); drawGame();
     } else if (data.type === 'death') { alert(data.message); }
-    else if (data.type === 'capture') { console.log(`Captured ${data.size} cells`); drawGame(); }
+    else if (data.type === 'capture') { console.log(`Captured ${data.size} cells`); }
 }
 
 function updateGameState(state) {
@@ -66,9 +66,16 @@ function setupCanvas() {
     window.addEventListener('resize', resize); resize();
 }
 
+function darkenColor(hex) {
+    const r = Math.max(0, parseInt(hex.slice(1,3), 16) - 90);
+    const g = Math.max(0, parseInt(hex.slice(3,5), 16) - 90);
+    const b = Math.max(0, parseInt(hex.slice(5,7), 16) - 90);
+    return `rgb(${r},${g},${b})`;
+}
+
 function drawGame() {
     if (!ctx || !players.length) return;
-    // White background
+    // ✅ White background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, viewWidth, viewHeight);
 
@@ -83,7 +90,6 @@ function drawGame() {
     const ex = sx + Math.ceil(viewWidth / TILE_SIZE) + 4;
     const ey = sy + Math.ceil(viewHeight / TILE_SIZE) + 4;
 
-    // Batch draw
     const batches = {};
     for (let gy = sy; gy <= ey; gy++) {
         for (let gx = sx; gx <= ex; gx++) {
@@ -108,9 +114,10 @@ function drawGame() {
         for (const r of rects) {
             ctx.fillRect(r.x, r.y, TILE_SIZE-1, TILE_SIZE-1);
             if (r.path) {
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(r.x, r.y, TILE_SIZE-1, TILE_SIZE-1);
+                // ✅ Rule 2: Dark square inside trail tile
+                ctx.fillStyle = darkenColor(c);
+                const inset = 4;
+                ctx.fillRect(r.x + inset, r.y + inset, TILE_SIZE - 1 - inset*2, TILE_SIZE - 1 - inset*2);
             }
         }
     }
